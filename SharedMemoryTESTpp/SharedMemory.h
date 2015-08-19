@@ -15,6 +15,7 @@ private:
 	HANDLE hShMem;	//ファイルマッピングのハンドル保存用
 	const std::string FILEMAPNAME;	//共有するファイル名(共有するプロセスで統一する)
 	T *datap;	//共有メモリへのポインタ
+	bool mIsCreated;	//オブジェクトを新規作成したかどうか
 
 	//共有メモリへのポインタを取得する
 	void getShMem();
@@ -32,6 +33,9 @@ public:
 	void setShMemData( T setData , int offset = 0 );
 	//データを取得
 	T getShMemData( int offset = 0 );
+
+	////オブジェクトを新規作成したかどうか取得
+	bool isCreated();
 
 };
 
@@ -76,7 +80,8 @@ void SharedMemory<T>::getShMem()
 
 	if (hShMem != NULL)
 	{
-		//bool isCreated = GetLastError() != ERROR_ALREADY_EXISTS;
+		//既にオブジェクトが作成されていたかどうか取得
+		mIsCreated = GetLastError() == ERROR_ALREADY_EXISTS;
 
 		/*
 		* MapViewOfFileは呼び出し側プロセスのアドレス空間に、ファイルのビューをマップします。
@@ -123,5 +128,12 @@ T SharedMemory<T>::getShMemData(int offset)
 {
 	return *(datap + offset);
 }
+
+template < typename T >
+bool SharedMemory<T>::isCreated()
+{
+	return mIsCreated;
+}
+
 
 #endif
