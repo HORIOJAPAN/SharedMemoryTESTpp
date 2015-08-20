@@ -5,6 +5,7 @@
 
 using namespace std;
 const string FMNAME = "testmap";	//共有ファイル名
+const string MTXNAME = "testmutex";
 
 void unko_main()
 {
@@ -33,7 +34,7 @@ void main()
 
 
 	//型とファイルマッピングオブジェクト名を指定してインスタンス生成
-	SharedMemory<int> shMem(FMNAME);
+	SharedMemory<int> shMem(FMNAME,MTXNAME);
 
 	if (shMem.isCreated()) {
 		myNum = shMem.getShMemData();

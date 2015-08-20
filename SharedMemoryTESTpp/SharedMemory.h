@@ -17,15 +17,29 @@ private:
 	T *datap;	//共有メモリへのポインタ
 	bool mIsCreated;	//オブジェクトを新規作成したかどうか
 
+	HANDLE hMutex;	//ミューテックスオブジェクトのハンドル保存用
+	const std::string MUTEXNAME;	//ミューテックスオブジェクト名(排他制御対象で統一する)
+
 	//共有メモリへのポインタを取得する
 	void getShMem();
 	//ファイルマップビューとハンドルを破棄する
 	void releaseShMem();
 
+	//排他処理関連
+	//ミューテックスオブジェクト取得
+	void getMtx();
+	//所有権をtime[millisec]待つ
+	//基本的にはタイムアウト無し
+	void waitMtx(int time = INFINITE);
+	//処理が終わったら必ず所有権を返す
+	void releaseMtx();
+
 public:
 	//コンストラクタ
-	//引数にファイル名が必要
+	//引数にファイルマッピングオブジェクト名が必要
 	SharedMemory(const std::string FMNAME);
+	//引数にファイルマッピングオブジェクト名とミューテックスオブジェクト名が必要
+	SharedMemory(const std::string FMNAME, const std::string MTX);
 	//デストラクタ
 	~SharedMemory();
 
@@ -40,16 +54,25 @@ public:
 };
 
 //↓↓↓↓ 以下実装部分 ↓↓↓↓
+//コンストラクタ
 template < typename T >
 SharedMemory<T>::SharedMemory(const std::string FMNAME) :FILEMAPNAME(FMNAME)
 {
 	SharedMemory::getShMem();
+	hMutex = NULL;
 }
-
+template < typename T >
+SharedMemory<T>::SharedMemory(const std::string FMNAME, const std::string MTX) :FILEMAPNAME(FMNAME), MUTEXNAME(MTX)
+{
+	SharedMemory::getMtx();
+	SharedMemory::getShMem();
+}
+//デストラクタ
 template < typename T >
 SharedMemory<T>::~SharedMemory()
 {
 	SharedMemory::releaseShMem();
+	if (hMutex != NULL)	CloseHandle(hMutex);
 }
 
 template < typename T >
@@ -118,15 +141,72 @@ void SharedMemory<T>::releaseShMem()
 }
 
 template < typename T >
+void SharedMemory<T>::getMtx()
+{
+	/*
+	 * ミューテックスオブジェクトのハンドルを取得する
+	 * 既に存在している場合はそのハンドルを返す
+	 *
+	 * HANDLE CreateMutex(
+	 * LPSECURITY_ATTRIBUTES lpMutexAttributes, // セキュリティ記述子
+	 * BOOL bInitialOwner, // 最初の所有者
+	 * LPCTSTR lpName // オブジェクトの名前
+	 * );
+	 */
+	hMutex = CreateMutex(NULL, FALSE, MUTEXNAME.c_str());
+
+	if (hMutex != NULL) cout << "Create mutex" << endl;
+}
+
+template < typename T >
+void SharedMemory<T>::waitMtx(int time)
+{
+	if (hMutex != NULL)
+	{
+		/*
+		 * ミューテックスオブジェクトの所有権を待つ
+		 * 
+		 * DWORD WaitForSingleObject(
+		 * HANDLE hHandle, // オブジェクトのハンドル
+		 * DWORD dwMilliseconds // タイムアウト時間
+		 * );
+		 */
+		WaitForSingleObject(hMutex, time);
+	}
+}
+
+template < typename T >
+void SharedMemory<T>::releaseMtx()
+{
+	if (hMutex != NULL)
+	{
+		/*
+		 * 所有権を返す
+		 *
+		 * BOOL ReleaseMutex( HANDLE hMutex // ミューテックスオブジェクトのハンドル );
+		 */
+		ReleaseMutex(hMutex);
+	}
+}
+
+template < typename T >
 void SharedMemory<T>::setShMemData(T setData, int offset)
 {
+	waitMtx();
 	*(datap + offset) = setData;
+	releaseMtx();
 }
 
 template < typename T >
 T SharedMemory<T>::getShMemData(int offset)
 {
-	return *(datap + offset);
+	T ret;
+
+	waitMtx();
+	ret = *(datap + offset);
+	releaseMtx();
+
+	return ret;
 }
 
 template < typename T >
