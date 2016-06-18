@@ -34,7 +34,7 @@ void main()
 
 
 	//型とファイルマッピングオブジェクト名を指定してインスタンス生成
-	SharedMemory<int> shMem(FMNAME,MTXNAME);
+	SharedMemory<float> shMem(FMNAME,MTXNAME);
 
 	if (shMem.isCreated()) {
 		myNum = shMem.getShMemData();
@@ -64,7 +64,7 @@ void main()
 		getline(cin, str);
 
 		//int型の整数値を共有メモリの2番目の領域に書き込む
-		shMem.setShMemData(atoi(str.c_str()), myNum);
+		shMem.setShMemData(atof(str.c_str()), myNum);
 
 		getline(cin, str);
 		if (str == "exit") break;
